@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Google Calendar</title>
+    <!-- The panel CSP allows script from this plugin's own files only (no inline script), so the
+      logic lives in main.js. The SDK gives the page `ccPanel` and the app theme variables. Every
+      action is a button: a panel cannot submit a <form> (sandboxed without allow-forms). The title
+      bar (next meeting, account, Join, refresh) is drawn by the app from the host's
+      ctx.panels.header. A calendar's colour comes in a CSS custom property set from script
+      (element.style.setProperty), checked by the host to be #rrggbb. -->
+    <script src="/__sdk/panel.js"></script>
+    <script src="rowlogic.js" defer></script>
+    <script src="timeline.js" defer></script>
+    <script src="main.js" defer></script>
+    <style>
+      body { margin: 0; padding: 10px; font: 12px/1.4 system-ui, sans-serif; background: var(--cc-bg); color: var(--cc-fg); }
+      button { font: inherit; color: inherit; background: var(--cc-bg-menu); border: 1px solid var(--cc-border); border-radius: 4px; padding: 1px 6px; cursor: pointer; }
+      button:hover { border-color: var(--cc-border-strong); }
+      button:focus-visible, textarea:focus-visible { outline: 2px solid var(--cc-focus); outline-offset: 1px; }
+      button:disabled { opacity: 0.6; cursor: default; }
+      button.primary { background: var(--cc-accent); color: var(--cc-accent-fg); border-color: var(--cc-accent); padding: 1px 8px; }
+      button.primary:hover { background: var(--cc-accent-hover); }
+      button.link { border: 0; background: none; padding: 0 2px; color: var(--cc-fg-muted); text-decoration: underline; }
+      button.link:hover { color: var(--cc-fg); }
+      button.on { outline: 1px solid var(--cc-accent); }
+      .notice { background: var(--cc-bg-error); border: 1px solid var(--cc-border); border-radius: 4px; padding: 6px 8px; margin-bottom: 8px; display: flex; gap: 6px; align-items: flex-start; }
+      .notice.info { background: var(--cc-bg-banner); }
+      .notice .text { flex: 1; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .notice .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+      .muted { color: var(--cc-fg-muted); }
+      /* The setup guide. */
+      .setup h2 { font-size: 13px; margin: 2px 0 6px; }
+      .setup ol { margin: 0 0 10px; padding-left: 20px; }
+      .setup li { margin: 0 0 6px; }
+      .setup .links { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 4px; }
+      .setup textarea { width: 100%; box-sizing: border-box; min-height: 90px; font: 11px/1.4 ui-monospace, monospace; background: var(--cc-surface-1); color: var(--cc-fg); border: 1px solid var(--cc-border); border-radius: 4px; padding: 6px; resize: vertical; }
+      .setup .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+      .setup .client { padding: 6px 8px; border: 1px solid var(--cc-border); border-radius: 4px; background: var(--cc-surface-1); margin-bottom: 10px; }
+      .setup .waiting { color: var(--cc-fg-muted); font-style: italic; }
+      .setup .hint { margin-top: 6px; }
+      .setup .error { color: var(--cc-status-ended); white-space: pre-wrap; }
+      /* The Now / Next card. */
+      .card { border: 1px solid var(--cc-border); border-radius: 6px; padding: 6px 8px; margin-bottom: 8px; background: var(--cc-surface-1); }
+      .card .what { display: flex; gap: 6px; align-items: center; }
+      .card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--cc-fg-muted); flex: none; width: 34px; }
+      .card .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+      .card .when { flex: none; color: var(--cc-fg-muted); }
+      .card .count { flex: none; font-weight: 600; }
+      .card + .card, .card .what + .what { margin-top: 4px; }
+      .card.soon { border-color: var(--cc-accent); box-shadow: inset 3px 0 0 var(--cc-accent); }
+      .bar { height: 3px; border-radius: 2px; background: var(--cc-surface-3); margin: 4px 0 0 40px; overflow: hidden; }
+      .bar > span { display: block; height: 100%; background: var(--cc-accent); }
+      .ooo { color: var(--cc-status-needs-permission); }
+      /* The day strip at the top of the card (the old cockpit's now bar): 30-min cells, the now marker. */
+      .daystrip { margin-bottom: 6px; }
+      .stripbox { position: relative; margin: 2px 0 1px; }
+      .strip { display: flex; height: 12px; border-radius: 3px; overflow: hidden; }
+      .strip i { flex: 1; background: var(--cc-surface-3); border-right: 1px solid var(--cc-surface-1); }
+      .strip i:last-child { border-right: 0; }
+      .strip i.b { background: color-mix(in srgb, var(--cc-status-working, #3b8eea) 70%, var(--cc-surface-1)); }
+      .strip i.u { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--cc-status-needs-permission, #e5a00d) 75%, var(--cc-surface-1)) 0 3px, color-mix(in srgb, var(--cc-status-needs-permission, #e5a00d) 25%, var(--cc-surface-1)) 3px 6px); }
+      .stripbox .now { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--cc-status-ended, #cd3131); border-radius: 1px; }
+      .scale { position: relative; height: 12px; font-size: 9.5px; line-height: 12px; color: var(--cc-fg-subtle); font-variant-numeric: tabular-nums; }
+      .scale span { position: absolute; top: 0; transform: translateX(-50%); }
+      .scale span.first { left: 0; transform: none; }
+      .scale span.last { right: 0; transform: none; }
+      .stripnext { font-size: 11px; color: var(--cc-fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .stripnext b { color: var(--cc-fg); font-weight: 600; }
+      section { margin-bottom: 8px; }
+      .head { display: flex; align-items: center; gap: 6px; padding: 3px 6px; background: var(--cc-surface-1); border-radius: 4px; font-weight: 600; }
+      .head .count { color: var(--cc-fg-muted); font-weight: normal; }
+      .head .grow { flex: 1; }
+      .chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px 2px 0; }
+      .chip { font-size: 10.5px; padding: 0 6px; border-radius: 9px; background: var(--cc-surface-2); border-left: 3px solid var(--cal, var(--cc-border)); cursor: pointer; }
+      .today .head .count { white-space: nowrap; }
+      .head .tom { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cc-fg-muted); font-weight: normal; font-size: 11px; }
+      /* Today as an hour timeline (the old cockpit's .tl): hours down the side, blocks sized by their
+        length, overlaps side by side in lanes, the red now line. */
+      .tl { position: relative; margin: 12px 2px 8px 38px; border-left: 1px solid var(--cc-border); }
+      .hr { position: relative; height: 46px; }
+      .hr.end { height: 0; }
+      .hr span { position: absolute; left: -38px; top: -7px; width: 32px; text-align: right; color: var(--cc-fg-subtle); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+      .hr::before { content: ''; position: absolute; left: 0; right: 0; top: 0; border-top: 1px dashed var(--cc-border); }
+      .ev { position: absolute; box-sizing: border-box; container-type: inline-size; padding: 2px 5px; border-radius: 5px; overflow: hidden; cursor: pointer; font-size: 11.5px; line-height: 15px;
+        background: color-mix(in srgb, var(--cal, var(--cc-status-working, #3b8eea)) 22%, var(--cc-surface-1)); border-left: 3px solid var(--cal, var(--cc-status-working, #3b8eea)); }
+      .ev:hover { background: color-mix(in srgb, var(--cal, var(--cc-status-working, #3b8eea)) 32%, var(--cc-surface-1)); }
+      .ev:focus { outline: none; }
+      .ev:focus-visible { outline: 2px solid var(--cc-focus); outline-offset: -1px; }
+      .ev .l1 { display: flex; gap: 4px; align-items: center; min-width: 0; white-space: nowrap; }
+      .ev .t { flex: none; color: var(--cc-fg-muted); font-variant-numeric: tabular-nums; }
+      .ev .title { flex: 0 1 auto; }
+      .ev .s { flex: 0 100 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cc-fg-muted); font-size: 10.5px; }
+      .ev.tall .s { display: block; }
+      .ev .s.hot { color: var(--cc-status-needs-permission, #e5a00d); }
+      .ev .join { flex: none; margin-left: auto; font-size: 10px; line-height: 14px; padding: 0 5px; }
+      .ev .join[hidden] { display: none; }
+      .ev.cur { background: color-mix(in srgb, var(--cc-status-waiting, #23a55a) 22%, var(--cc-surface-1)); border-left-color: var(--cc-status-waiting, #23a55a); }
+      .ev.unans { background: color-mix(in srgb, var(--cc-status-needs-permission, #e5a00d) 20%, var(--cc-surface-1)); border-left-color: var(--cc-status-needs-permission, #e5a00d); }
+      .ev.past, .ev.decl { opacity: 0.5; }
+      .ev.decl .title { text-decoration: line-through; }
+      .ev.focus .title { font-style: italic; color: var(--cc-fg-muted); }
+      /* More than three lanes: smaller text, no start time (the tooltip and the aria label have it). */
+      .ev.dense { font-size: 10px; line-height: 13px; padding: 1px 3px; }
+      .ev.dense .t { display: none; }
+      /* A block narrower than about 110 px (lanes in a narrow panel): the title keeps the room, the
+        start time goes (tooltip, aria label), Join becomes ▶ but stays. */
+      @container (max-width: 110px) {
+        .ev .t { display: none; }
+        .ev .join { font-size: 0; padding: 0 3px; }
+        .ev .join::before { content: '▶'; font-size: 9px; }
+      }
+      .nowline { position: absolute; left: -4px; right: 0; height: 2px; margin-top: -1px; background: var(--cc-status-ended, #cd3131); pointer-events: none; z-index: 1; }
+      .nowline::before { content: ''; position: absolute; left: -3px; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--cc-status-ended, #cd3131); }
+      .nowline[hidden], .stripbox .now[hidden] { display: none; }
+      ul.rows { list-style: none; margin: 0; padding: 0; }
+      li.row { position: relative; border-bottom: 1px solid var(--cc-border); padding: 3px 2px 3px 8px; cursor: pointer; border-radius: 3px; }
+      li.row::before { content: ''; position: absolute; left: 1px; top: 3px; bottom: 3px; width: 3px; border-radius: 2px; background: var(--cal, var(--cc-border)); }
+      li.row:hover { background: var(--cc-surface-1); }
+      li.row:focus { outline: none; }
+      li.row:focus-visible { outline: 2px solid var(--cc-focus); outline-offset: -2px; }
+      li.row.running { background: color-mix(in srgb, var(--cc-accent) 12%, transparent); }
+      li.row.past { opacity: 0.55; }
+      li.row.declined .title { text-decoration: line-through; }
+      li.row.muted-row .title { color: var(--cc-fg-muted); font-style: italic; }
+      li.row.pending { opacity: 0.6; }
+      .line { display: flex; gap: 6px; align-items: center; }
+      .time { flex: none; width: 76px; color: var(--cc-fg-muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .mark { flex: none; width: 10px; text-align: center; color: var(--cc-fg-muted); }
+      .cam { flex: none; font-size: 10px; color: var(--cc-fg-muted); }
+      .warn { flex: none; color: var(--cc-status-needs-permission); }
+      .pill { font-size: 10px; padding: 0 4px; border-radius: 3px; background: var(--cc-surface-3); color: var(--cc-fg); flex: none; }
+      .sub { padding-left: 82px; color: var(--cc-fg-muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .rsvp { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; padding: 3px 0 1px 82px; }
+      .rsvp .note { color: var(--cc-fg-muted); font-size: 11px; }
+      /* Upcoming: one compact line each. */
+      li.row.compact .time { width: auto; min-width: 96px; }
+      /* The hover buttons, as bronos.chat's. */
+      .actions { position: absolute; right: 2px; top: 2px; display: flex; gap: 3px; padding: 1px 2px; background: var(--cc-surface-2); border-radius: 4px; box-shadow: 0 1px 3px var(--cc-shadow); opacity: 0; pointer-events: none; transition: opacity 80ms; }
+      li.row:hover .actions, li.row:focus-within .actions { opacity: 1; pointer-events: auto; }
+      .actions button { font-size: 10px; line-height: 15px; padding: 0 5px; }
+      .empty { color: var(--cc-fg-muted); padding: 4px 2px; }
+      footer { margin-top: 10px; color: var(--cc-fg-subtle); font-size: 11px; }
+      footer > div { margin-top: 4px; }
+      .cals { list-style: none; margin: 4px 0; padding: 0; }
+      .cals li { display: flex; gap: 6px; align-items: center; padding: 1px 0; }
+      .swatch { width: 10px; height: 10px; border-radius: 2px; background: var(--cal, var(--cc-border)); flex: none; }
+      .cals .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cc-fg); }
+      code { font-family: ui-monospace, monospace; background: var(--cc-surface-2); padding: 0 3px; border-radius: 3px; }
+    </style>
+  </head>
+  <body>
+    <div id="notices"></div>
+    <div id="setup"></div>
+    <div id="agenda"></div>
+    <footer id="footer"></footer>
+  </body>
+</html>

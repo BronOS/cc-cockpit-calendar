@@ -1,0 +1,150 @@
+{
+  "id": "bronos.calendar",
+  "name": "Google Calendar",
+  "version": "0.1.0",
+  "api": 1,
+  "main": "dist/host.js",
+  "description": "Your Google Calendar beside your Claude tabs: the meeting now and next with a countdown and Join, invitations to answer, today, tomorrow and the next days, reminders before a meeting starts, an event opened as a clean page to discuss with Claude. It changes nothing in Google Calendar but your answers to invitations.",
+  "author": "Oleg Bronzov",
+  "license": "MIT",
+  "contributes": {
+    "panels": [
+      {
+        "id": "main",
+        "title": "Google Calendar",
+        "icon": "icons/calendar.svg",
+        "entry": "panels/main.html",
+        "defaultZone": "right"
+      }
+    ],
+    "settings": {
+      "project": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "title": "OAuth client ID",
+            "description": "The client ID of your own Google Cloud OAuth client (a Desktop app client), ending in .apps.googleusercontent.com. Or leave it empty and paste the client file in the Google Calendar panel: a pasted client wins. Changing it signs you out.",
+            "maxLength": 300,
+            "default": ""
+          },
+          "clientSecret": {
+            "type": "string",
+            "format": "secret",
+            "title": "OAuth client secret",
+            "description": "The client secret of the same Desktop app client (Google Cloud console > Google Auth Platform > Clients)."
+          },
+          "calendars": {
+            "type": "array",
+            "title": "More calendars",
+            "description": "Calendar ids shown beside your primary calendar (always shown): a colleague's address, or a shared calendar's id (…@group.calendar.google.com, from its settings in Google Calendar). Each must be in your calendar list. The panel's Calendars picker adds more for this project.",
+            "maxItems": 20,
+            "items": { "type": "string", "title": "Calendar id", "maxLength": 254 },
+            "default": []
+          },
+          "upcomingCount": {
+            "type": "integer",
+            "title": "Upcoming: events",
+            "description": "How many events after tomorrow the Upcoming list shows (one line each).",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10
+          },
+          "upcomingDays": {
+            "type": "integer",
+            "title": "Upcoming: days ahead",
+            "description": "How far ahead the Upcoming list looks (and how far each calendar is read).",
+            "minimum": 2,
+            "maximum": 60,
+            "default": 14
+          },
+          "inviteDays": {
+            "type": "integer",
+            "title": "Invitations: days ahead",
+            "description": "How far ahead the primary calendar is read for invitations waiting for your answer.",
+            "minimum": 1,
+            "maximum": 90,
+            "default": 30
+          },
+          "pollMinutes": {
+            "type": "integer",
+            "title": "Poll every (minutes)",
+            "description": "Only while this project's window is open; a little random spread is added so several windows do not poll together.",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 3
+          },
+          "reminders": {
+            "type": "array",
+            "title": "Reminders (minutes before)",
+            "description": "A desktop notification this many minutes before each meeting you have not declined (0: at the start). Empty: no reminders. One notification per meeting and time, however many windows are open.",
+            "maxItems": 5,
+            "items": { "type": "integer", "minimum": 0, "maximum": 120 },
+            "default": [10, 2]
+          },
+          "reminderSound": {
+            "type": "boolean",
+            "title": "Reminders play a sound",
+            "description": "The app's switch Settings > Appearance and keys > Notifications > Notification sounds still silences every sound.",
+            "default": true
+          },
+          "reminderSoundChoice": {
+            "type": "string",
+            "format": "sound",
+            "title": "Reminder sound",
+            "description": "Which sound a reminder plays. App default: the Sound picked in Settings > Appearance and keys > Notifications. Needs cc-cockpit 0.9.5 (an older app shows a text field and plays no sound of its own).",
+            "default": ""
+          },
+          "joinEarlyMinutes": {
+            "type": "integer",
+            "title": "Join: minutes early",
+            "description": "From how many minutes before the start the title bar's Join button opens the meeting.",
+            "minimum": 0,
+            "maximum": 30,
+            "default": 10
+          },
+          "showDeclined": {
+            "type": "boolean",
+            "title": "Show declined events",
+            "description": "Declined events, struck through. They never get a reminder or the Now / Next card.",
+            "default": false
+          },
+          "showBirthdays": {
+            "type": "boolean",
+            "title": "Show birthdays",
+            "default": true
+          },
+          "showWorkingLocation": {
+            "type": "boolean",
+            "title": "Show working location",
+            "description": "Office / home chips of the day.",
+            "default": true
+          },
+          "timeZone": {
+            "type": "string",
+            "title": "Time zone",
+            "description": "Which zone the times are shown in: your primary calendar's (as Google Calendar shows them) or this computer's.",
+            "oneOf": [
+              { "const": "calendar", "title": "My primary calendar's time zone" },
+              { "const": "computer", "title": "This computer's time zone" }
+            ],
+            "default": "calendar"
+          }
+        }
+      }
+    },
+    "cli": [
+      {
+        "name": "calendar",
+        "summary": "Google Calendar: status, refresh, today, the next meeting, upcoming, show an event, answer an invitation, sign in or out, set the OAuth client",
+        "usage": "calendar status | refresh | today | next | upcoming | show <id> [--calendar <id>] | rsvp <id> yes|no|maybe [--one] [--calendar <id>] | login | logout | client <file.json> | help"
+      }
+    ]
+  },
+  "services": {
+    "uses": {
+      "reviewer": 1,
+      "jira": 1
+    }
+  }
+}
