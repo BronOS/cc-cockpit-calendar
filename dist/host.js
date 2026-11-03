@@ -29,6 +29,7 @@ const { planRsvp, createGate, answerOf, SAID } = require('./lib/rsvp')
 const { dueReminders, reminderText, staleKeys, notify, reminderSoundOf, OLD_APP_SUFFIX } = require('./lib/reminders')
 const { eventDocument, discussPrompt } = require('./lib/document')
 const J = require('./lib/jira')
+const svc = require('./lib/service')
 const { esc } = require('./lib/entities')
 const { pickTab, isMissingAnnotate } = require('./lib/actions')
 const { headerSpec } = require('./lib/header')
@@ -115,6 +116,18 @@ function start(ctx, io = {}) {
     stopped: false,
   }
   const cfg = () => S.settings.cfg
+
+  /**
+   * Tell the services' listeners (Inbox) that the agenda or an answer changed: after each poll and
+   * each RSVP. Not every app has emit (the plugin runs on 0.9.4), and a listener's trouble is not ours.
+   */
+  function changed() {
+    try {
+      if (typeof ctx.services.emit === 'function') ctx.services.emit('calendar', 'changed', {})
+    } catch (e) {
+      ctx.log.warn(`calendar changed event: ${e && e.message ? e.message : e}`)
+    }
+  }
 
   const auth = tooOld ? null : createAuth({ oauth: ctx.oauth, secrets: ctx.secrets, storage: ctx.storage, log: ctx.log, now })
   const cal = createClient({ getToken: () => auth.token(), invalidate: () => auth.invalidate(), fetch: fetchFn })
@@ -263,9 +276,11 @@ function start(ctx, io = {}) {
         ctx.log.info(`poll (${reason}${force ? ', forced' : ''}): ${r.stats.calendars} calendar(s), ${r.stats.events} events`)
         if (S.backoffMinutes) S.backoffMinutes = 0
         postState()
+        changed()
         void lookUpChips().catch((e) => ctx.log.warn(`jira lookups: ${e && e.message ? e.message : e}`))
       } catch (e) {
         await failed(reason, e)
+        changed()
       } finally {
         S.polling = null
         planNextPoll()
@@ -545,6 +560,7 @@ function start(ctx, io = {}) {
       rebuild()
       postState()
       ctx.log.info(`answered ${plan.series ? 'series' : 'event'} ${ev.key}: ${answer}`)
+      changed()
       if (S.polling) S.pollAgain = true
       else void pollNow('answer', true)
       const message = `${SAID[answer]} ${what}. The organizer is told.`
@@ -553,6 +569,7 @@ function start(ctx, io = {}) {
     } catch (e) {
       delete S.pending[plan.target]
       rebuild()
+      changed()
       let why = e && e.message ? e.message : String(e)
       if (e && e.kind === 'scope') {
         const g = auth.status().grant
@@ -1080,6 +1097,52 @@ function start(ctx, io = {}) {
       call,
     )
   })
+
+  // ---- the `calendar` service (lib/service.js; Inbox reads it) ----
+  // Everything answers from the last poll's agenda, with the answers still on their way applied.
+
+  function serviceState() {
+    if (!auth) return { state: 'error', message: tooOld }
+    if (!signedIn()) return { state: 'signedOut', message: 'Not signed in to Google Calendar.' }
+    // A failed poll keeps the agenda of the last good one: that is served (a Google hiccup must not
+    // blank the caller's day). Only before any poll has worked is there nothing to serve.
+    if (!S.state || !S.state.lastPoll || S.blocked) return { state: 'error', message: S.blocked || S.error || 'The calendar has not been read yet.' }
+    return { state: 'ok' }
+  }
+  const serviceEvents = () => withPending(S.agenda.events, S.pending)
+
+  /** The agenda event of a service id: the primary copy first, or a refusal naming the cause. */
+  function serviceEvent(id) {
+    const ev = eventOfId(svc.checkId(id))
+    if (!ev) throw new Error('calendar: that event is not in the last poll (it may be over or removed)')
+    return ev
+  }
+
+  if (typeof ctx.services.provide === 'function') {
+    ctx.services.provide('calendar', {
+      day: (o) => {
+        const opts = svc.dayOptions(o)
+        return svc.day({ events: serviceEvents(), opts, now: now(), tz: zone(), cfg: cfg(), ...serviceState() })
+      },
+      upcoming: (o) => {
+        const opts = svc.upcomingOptions(o)
+        if (serviceState().state !== 'ok') return []
+        return svc.upcoming({ events: serviceEvents(), opts, now: now(), tz: zone(), cfg: cfg() })
+      },
+      async respond(id, answer) {
+        const ev = serviceEvent(id)
+        const a = svc.checkAnswer(answer)
+        const r = await answerEvent(ev, a)
+        if (r.error) throw new Error(`calendar: ${r.error}`)
+      },
+      async open(id) {
+        const ev = serviceEvent(id)
+        await openEvent(ev.key)
+        // openEvent says a failure in a notice and returns; a refusal here tells the caller.
+        if (S.notice && S.notice.kind === 'error') throw new Error(`calendar: ${S.notice.text}`)
+      },
+    })
+  }
 
   return {
     S,

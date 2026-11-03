@@ -39,6 +39,16 @@ edits or deletes an event.
 
 Each project signs in on its own: two projects can use different Google accounts.
 
+## Inbox
+
+From 0.2.0 the plugin provides the `calendar` service (v1) to other plugins of the project, for the
+Inbox plugin: `day({ date? })` (the events of a day and what tomorrow holds), `upcoming({ count,
+days })`, `respond(id, 'accepted' | 'tentative' | 'declined')` (the same answer as Accept, Maybe and
+Decline in the panel) and `open(id)` (the event page, as a click in the panel opens it). Reads come
+from the last poll and make no Google call; declined events are left out unless "Show declined
+events" is on; a Meet link is passed on only when it is https. A `changed` event follows each poll
+and each answer. Nothing to set up, and it works on an app without Inbox support.
+
 ## Requirements
 
 - **cc-cockpit 0.9.4 or later** (plugin API 1 with `ctx.oauth` reporting the granted scopes,

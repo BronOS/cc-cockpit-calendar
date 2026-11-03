@@ -395,6 +395,8 @@ function fakeCtx(opts = {}) {
     schedules: [],
     notes: [],
     notifyClick: false,
+    provided: {}, // services this plugin provides: name -> impl
+    emitted: [], // services.emit calls: { name, event, data }
     sessionList: opts.sessions || [],
     onSettingsChange(fn) {
       settingsListeners.push(fn)
@@ -511,8 +513,12 @@ function fakeCtx(opts = {}) {
         })
       },
       available: (name) => Boolean(services[name]),
-      provide() {},
-      emit() {},
+      provide(name, impl) {
+        ctx.provided[name] = impl
+      },
+      emit(name, event, data) {
+        ctx.emitted.push({ name, event, data })
+      },
       caller: () => undefined,
     },
     lastState() {
