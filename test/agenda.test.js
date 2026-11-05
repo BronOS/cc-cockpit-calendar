@@ -18,6 +18,16 @@ const row = (key, from, to, o = {}) => ({ key, title: o.title || key, from, to, 
 const today = (rows) => ({ day: '2026-11-03', label: 'Tue 3 Nov', rows, clock: [{ at: DAY0, min: 0 }] })
 const at = (min) => DAY0 + min * MIN
 
+test('height: measures the content box, so a shorter agenda reports a smaller height', () => {
+  const box = (h, offset) => ({ getBoundingClientRect: () => ({ height: h }), offsetHeight: offset })
+  const tall = A.agendaHeight(box(180.2))
+  const short = A.agendaHeight(box(60.5))
+  assert.equal(tall, 181)
+  assert.equal(short, 61)
+  assert.ok(short < tall)
+  assert.equal(A.agendaHeight({ offsetHeight: 42 }), 42)
+})
+
 test('timeline: blocks as percentages of the span, overlaps in lanes, the now line, states', () => {
   assert.equal(A.agendaTimeline(today([]), at(540)), null)
   const t = A.agendaTimeline(today([row('a', 600, 660), row('b', 630, 690, { response: 'needsAction' }), row('c', 720, 780, { response: 'declined' })]), at(615))

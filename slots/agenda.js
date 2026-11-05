@@ -85,7 +85,19 @@ function agendaDelay(m, now) {
   return AGR.redrawDelay(times, now)
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { agendaTimeline, agendaNext, agendaInvitations, agendaEmpty, agendaDelay }
+/**
+ * The height the slot frame needs: the content element's own box, rounded up. Never
+ * `documentElement.scrollHeight`: that is at least the frame's viewport height, so the frame could
+ * grow but never shrink (the agenda stayed at the Inbox's initial height with one event or none).
+ * The element is the body, whose height is `auto`, so its box is the content plus its padding and
+ * does not follow the viewport. The app clamps the value (24-600 px, the slot's range).
+ */
+function agendaHeight(el) {
+  const h = typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect().height : 0
+  return Math.ceil(h || el.offsetHeight || 0)
+}
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { agendaTimeline, agendaNext, agendaInvitations, agendaEmpty, agendaDelay, agendaHeight }
 
 // ---- the page (not run under node) ----
 if (typeof ccPanel !== 'undefined' && typeof document !== 'undefined') {
@@ -106,6 +118,19 @@ if (typeof ccPanel !== 'undefined' && typeof document !== 'undefined') {
   }
   const agendaPost = (type, extra) => ccPanel.post({ type, ...extra })
   const agendaButton = (label, title, onclick, cls) => agendaEl('button', { type: 'button', class: cls, title, 'aria-label': title, onclick }, label)
+
+  // Report the content's height when it changed. The observer watches the body (its size follows the
+  // content, not the frame), and the last value is kept so a resize the app makes in answer cannot
+  // start a loop. `ccPanel.slot` appears after load, so it is read on every call.
+  let agendaLastHeight = -1
+  function agendaReportHeight() {
+    if (!ccPanel.slot || typeof ccPanel.slot.setHeight !== 'function') return
+    const h = agendaHeight(document.body)
+    if (h === agendaLastHeight || h <= 0) return
+    agendaLastHeight = h
+    ccPanel.slot.setHeight(h)
+  }
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(agendaReportHeight).observe(document.body)
 
   function agendaRender() {
     const root = document.getElementById('root')
@@ -154,7 +179,7 @@ if (typeof ccPanel !== 'undefined' && typeof document !== 'undefined') {
     }
     if (agendaNotice) out.push(agendaEl('p', { class: agendaNotice.kind === 'error' ? 'err' : 'empty', text: agendaNotice.text }))
     root.replaceChildren(...out)
-    if (ccPanel.slot && typeof ccPanel.slot.setHeight === 'function') ccPanel.slot.setHeight(Math.ceil(document.documentElement.scrollHeight))
+    agendaReportHeight()
     if (agendaTimer) clearTimeout(agendaTimer)
     if (m && m.ok) agendaTimer = setTimeout(agendaRender, agendaDelay(m, now))
   }
