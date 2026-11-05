@@ -23,6 +23,7 @@ function boot(opts = {}) {
     dataDir: opts.dataDir,
     notify: opts.notify,
     old: opts.old,
+    noSlots: opts.noSlots,
   })
   const clock = { t: opts.now || NOW }
   const h = host._start(ctx, { fetch: google.fetch, now: () => clock.t, random: () => 0.5, setTimeout: () => 0, clearTimeout: () => {}, cliWaitMs: 3000, jiraLookupWaitMs: 200, jiraViewWaitMs: 500 })

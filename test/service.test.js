@@ -204,5 +204,5 @@ test('an older app (services without useAll or emit): the plugin activates and s
 test('the manifest provides calendar 1 beside what it uses', () => {
   const m = require('../plugin.json')
   assert.deepEqual(m.services.provides, { calendar: 1 })
-  assert.equal(m.version, '0.2.0')
+  assert.equal(m.version, '0.3.0')
 })

@@ -376,6 +376,9 @@ function fakeCtx(opts = {}) {
   const panelListeners = []
   const actionListeners = []
   const settingsListeners = []
+  const slotListeners = []
+  const slotMessageListeners = []
+  const slotCloseListeners = []
   const dataDir = opts.dataDir || tmpDir()
   const services = { reviewer: opts.reviewer || null, jira: opts.jira || null }
   const ctx = {
@@ -455,6 +458,44 @@ function fakeCtx(opts = {}) {
     async clickAction(id) {
       for (const fn of actionListeners) await fn(id)
     },
+    // ctx.slots (cc-cockpit 0.10): `openSlot(type, params)` plays the app opening a frame of a slot this plugin provides.
+    slots: {
+      onOpen: (type, fn) => {
+        slotListeners.push({ type, fn })
+        return () => {}
+      },
+      available: () => true,
+    },
+    openSlot(type = 'agenda', params) {
+      const slot = {
+        id: `slot${ctx.slotFrames.length + 1}`,
+        type,
+        host: { kind: 'panel', pluginId: 'bronos.inbox', panelId: 'main' },
+        params,
+        posts: [],
+        closed: false,
+        post: (m) => {
+          if (slot.closed) return
+          if (JSON.stringify(m).length > 1024 * 1024) throw new Error('slot message over 1 MiB')
+          slot.posts.push(structuredClone(m))
+        },
+        onMessage: (fn) => (slotMessageListeners.push([slot, fn]), () => {}),
+        onClose: (fn) => (slotCloseListeners.push([slot, fn]), () => {}),
+        // The page side: a message from the slot's page.
+        async send(m) {
+          for (const [s, fn] of slotMessageListeners) if (s === slot) await fn(structuredClone(m))
+        },
+        close() {
+          slot.closed = true
+          for (const [s, fn] of slotCloseListeners) if (s === slot) fn()
+        },
+        last: () => [...slot.posts].reverse().find((m) => m.type === 'agenda'),
+      }
+      ctx.slotFrames.push(slot)
+      for (const l of slotListeners) if (l.type === type) l.fn(slot)
+      return slot
+    },
+    slotFrames: [],
     overlay: {
       start(spec) {
         const o = { spec, posts: [], listeners: [], answer: opts.overlayAnswer || { kind: 'dismissed' } }
@@ -533,6 +574,9 @@ function fakeCtx(opts = {}) {
     delete ctx.panels.header
     delete ctx.panels.onAction
     delete ctx.appStorage
+  }
+  if (opts.noSlots) {
+    delete ctx.slots
   }
   return ctx
 }

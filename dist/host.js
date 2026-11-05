@@ -889,6 +889,7 @@ function start(ctx, io = {}) {
     } catch (e) {
       ctx.log.warn('panel post:', e.message)
     }
+    postAgenda()
     setHeader()
   }
 
@@ -997,6 +998,114 @@ function start(ctx, io = {}) {
       setNotice(e && e.message ? e.message : String(e), 'error')
     }
   })
+
+  // ---- the agenda slot (contributes.slots; the Inbox draws it above or below its list) ----
+  // The slot's page is ours but sits in another plugin's panel, so it gets the same thing as the
+  // panel's page: row keys only, never an id or a URL, and it posts back `{ type, key }`. Join is
+  // stricter than the panel's: the Meet link opens only when it is https (a slot is a small
+  // surface; the panel's openUrl also takes http).
+
+  const slotFrames = new Set()
+  let lastAgenda = ''
+
+  /** What the slot's page draws: today's timed rows with the day clock, now, next, invitations. */
+  function agendaMessage() {
+    const sv = serviceState()
+    const v = S.view
+    if (sv.state !== 'ok' || !v) {
+      const text = sv.state === 'signedOut' ? 'Not signed in to Google Calendar: open the Google Calendar panel to sign in.' : sv.message || 'The calendar has not been read yet.'
+      return { type: 'agenda', ok: false, text }
+    }
+    const day = dayJson(v.today)
+    return {
+      type: 'agenda',
+      ok: true,
+      today: { day: day.day, label: day.label, rows: day.rows.filter((r) => !r.allDay), clock: day.clock },
+      now: v.now.map(rowJson),
+      next: v.next ? rowJson(v.next) : null,
+      invitations: v.invitations.slice(0, 5).map(rowJson),
+      rsvpOn: Boolean(auth) && auth.granted('rsvp'),
+      rsvpText: `Sign in again to answer invitations: this sign-in was not granted ${SCOPE_TEXT.rsvp.label}.`,
+      stale: stale(),
+    }
+  }
+
+  /** Send the slot state to every open frame; `force` also when it did not change (a new frame). */
+  function postAgenda(force = false) {
+    if (S.stopped || !slotFrames.size) return
+    try {
+      const m = agendaMessage()
+      const json = JSON.stringify(m)
+      if (!force && json === lastAgenda) return
+      lastAgenda = json
+      for (const f of slotFrames) f.post(m)
+    } catch (e) {
+      ctx.log.warn('slot post:', e.message)
+    }
+  }
+
+  /** Join from the slot: the event's Meet link from the last poll, https only. */
+  async function slotJoin(ev) {
+    if (!ev || !ev.join) return slotNotice('That event has no Google Meet link (or is no longer in the agenda).', 'error')
+    if (!/^https:\/\//i.test(ev.join)) return slotNotice('Only https meeting links open from here.', 'error')
+    try {
+      await ctx.openExternal(ev.join)
+    } catch (e) {
+      slotNotice(`Could not open the browser (${e && e.message ? e.message : e}).`, 'error')
+    }
+  }
+
+  function slotNotice(text, kind = 'info') {
+    for (const f of slotFrames) {
+      try {
+        f.post({ type: 'notice', text: cut(oneLine(text), 300), kind })
+      } catch (e) {
+        ctx.log.warn('slot notice:', e.message)
+      }
+    }
+  }
+
+  async function onSlotMessage(m) {
+    if (!m || typeof m !== 'object') return
+    try {
+      if (m.type === 'hello') {
+        await ready
+        return postAgenda(true)
+      }
+      const key = isKey(m.key) ? m.key : null
+      if (!key) return
+      if (m.type === 'join') return await slotJoin(eventOfKey(key))
+      if (m.type === 'open') return await openEvent(key)
+      if (m.type === 'rsvp') {
+        const answer = answerOf(m.answer)
+        if (!answer) return
+        const r = await answerEvent(eventOfKey(key), answer, { one: m.one === true })
+        if (r.error) slotNotice(r.error, 'error')
+      }
+    } catch (e) {
+      ctx.log.warn(`slot ${m.type}: ${e && e.message ? e.message : e}`)
+      slotNotice(e && e.message ? e.message : String(e), 'error')
+    }
+  }
+
+  // An older app has no ctx.slots: the plugin works without the slot.
+  if (!tooOld && ctx.slots && typeof ctx.slots.onOpen === 'function') {
+    ctx.slots.onOpen('agenda', (slot) => {
+      slotFrames.add(slot)
+      slot.onClose(() => slotFrames.delete(slot))
+      slot.onMessage(onSlotMessage)
+      // The page says hello when it loads; a frame that opened after a poll gets the state at once too.
+      void ready.then(() => {
+        if (slotFrames.has(slot)) {
+          try {
+            slot.post(agendaMessage())
+          } catch (e) {
+            ctx.log.warn('slot post:', e.message)
+          }
+        }
+      })
+    })
+  }
 
   // ---- CLI ----
 

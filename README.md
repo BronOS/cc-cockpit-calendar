@@ -49,6 +49,15 @@ from the last poll and make no Google call; declined events are left out unless 
 events" is on; a Meet link is passed on only when it is https. A `changed` event follows each poll
 and each answer. Nothing to set up, and it works on an app without Inbox support.
 
+## Agenda slot
+
+From 0.3.0 the plugin fills the `agenda` slot another plugin places in its panel (the Inbox draws it above or
+below its list; pick the provider in Settings > This project if several plugins offer one): today as a
+small timeline with the now line, the meeting now or next with a countdown and Join, and the invitations
+waiting for your answer with Accept and Decline. Join opens a Meet link only when it is https. The slot needs a
+cc-cockpit with slots (0.10 or later); on an older app the plugin works as before, without it. It
+adds no `inbox-feed`: the Inbox reads the `calendar` service.
+
 ## Requirements
 
 - **cc-cockpit 0.9.4 or later** (plugin API 1 with `ctx.oauth` reporting the granted scopes,
