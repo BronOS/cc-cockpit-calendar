@@ -26,7 +26,7 @@ const noComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/
 
 test('the manifest: id, api, entry points and files exist, the services it uses, the CLI', () => {
   assert.equal(manifest.id, 'bronos.calendar')
-  assert.equal(manifest.version, '0.3.0')
+  assert.equal(manifest.version, '0.3.1')
   assert.equal(manifest.api, 1)
   assert.equal(manifest.license, 'MIT')
   assert.equal(manifest.author, 'Oleg Bronzov')

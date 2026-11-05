@@ -1,7 +1,7 @@
 {
   "id": "bronos.calendar",
   "name": "Google Calendar",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "api": 1,
   "main": "dist/host.js",
   "description": "Your Google Calendar beside your Claude tabs: the meeting now and next with a countdown and Join, invitations to answer, today, tomorrow and the next days, reminders before a meeting starts, an event opened as a clean page to discuss with Claude. It changes nothing in Google Calendar but your answers to invitations.",
