@@ -12,23 +12,23 @@
     <script src="../panels/timeline.js" defer></script>
     <script src="agenda.js" defer></script>
     <style>
-      body { margin: 0; padding: 6px 10px; font: 12px/1.4 system-ui, sans-serif; background: var(--cc-bg); color: var(--cc-fg); }
-      .line { display: flex; gap: 8px; align-items: center; min-height: 26px; }
-      .line .label { color: var(--cc-fg-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+      body { margin: 0; padding: var(--cc-space-2) var(--cc-space-3); font: var(--cc-text-m)/1.4 system-ui, sans-serif; background: var(--cc-bg); color: var(--cc-fg); }
+      .line { display: flex; gap: var(--cc-space-2); align-items: center; min-height: var(--cc-row-h-compact); }
+      .line .label { color: var(--cc-fg-muted); font-size: var(--cc-text-s); text-transform: uppercase; letter-spacing: 0.04em; }
       .line .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
       .line .count { color: var(--cc-fg-muted); white-space: nowrap; }
       .tl { position: relative; margin: 4px 0; background: var(--cc-surface-1); border-radius: 4px; }
-      .tl .ev { position: absolute; box-sizing: border-box; border-radius: 3px; padding: 0 3px; font-size: 10.5px; line-height: 16px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; background: var(--cc-surface-3); border-left: 3px solid var(--cal, var(--cc-accent)); cursor: pointer; }
+      .tl .ev { position: absolute; box-sizing: border-box; border-radius: 3px; padding: 0 3px; font-size: var(--cc-text-s); line-height: 16px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; background: var(--cc-surface-3); border-left: 3px solid var(--cal, var(--cc-accent)); cursor: pointer; }
       .tl .ev.past { opacity: 0.5; }
-      .tl .ev.cur { background: color-mix(in srgb, #22c55e 28%, var(--cc-surface-3)); }
-      .tl .ev.unans { background: color-mix(in srgb, #f59e0b 28%, var(--cc-surface-3)); }
+      .tl .ev.cur { background: color-mix(in srgb, var(--cc-status-working, #22c55e) 28%, var(--cc-surface-3)); }
+      .tl .ev.unans { background: color-mix(in srgb, var(--cc-status-needs-permission, #f59e0b) 28%, var(--cc-surface-3)); }
       .tl .ev.decl { text-decoration: line-through; opacity: 0.4; }
-      .tl .nowline { position: absolute; top: 0; bottom: 0; width: 2px; background: #ef4444; pointer-events: none; }
-      .scale { display: flex; justify-content: space-between; color: var(--cc-fg-muted); font-size: 10px; }
-      .inv { display: flex; gap: 6px; align-items: center; min-height: 26px; }
+      .tl .nowline { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--cc-status-ended, #ef4444); pointer-events: none; }
+      .scale { display: flex; justify-content: space-between; color: var(--cc-fg-muted); font-size: var(--cc-text-s); }
+      .inv { display: flex; gap: var(--cc-space-2); align-items: center; min-height: var(--cc-row-h-compact); }
       .inv .what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .inv .when { color: var(--cc-fg-muted); }
-      .err { color: var(--cc-fg-error, #ef4444); }
+      .err { color: var(--cc-status-ended, #ef4444); }
       .empty { color: var(--cc-fg-muted); margin: 4px 0; }
     </style>
   </head>
