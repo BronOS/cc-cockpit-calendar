@@ -64,6 +64,8 @@ adds no `inbox-feed`: the Inbox reads the `calendar` service.
   `ctx.secrets`, the panel title bar, `ctx.openExternal`, `ctx.appStorage`). On an older app the
   panel says so and the plugin does nothing. cc-cockpit 0.9.5 adds clickable reminders with a Join
   button; on 0.9.4 the reminder is text only and says to join from the panel.
+  The agenda slot needs cc-cockpit 0.10.0 and Inbox 0.2.0 (the plugin that places the slot); the rest works
+  on 0.9.4.
 - **A Google account**, personal or Workspace.
 - **Your own Google Cloud OAuth client** (free; the steps are below and in the panel). The client
   file of the Gmail or Chat plugin works here too.
