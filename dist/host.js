@@ -753,7 +753,7 @@ function start(ctx, io = {}) {
 
   async function newSession(key) {
     const prompt = await eventPrompt(key)
-    await ctx.sessions.open({ prompt })
+    await ctx.sessions.open({ prompt, focus: true })
     setNotice(`Opened a new Claude tab about ${labelOf(eventOfKey(key))}.`)
   }
 

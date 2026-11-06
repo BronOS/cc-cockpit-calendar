@@ -330,6 +330,7 @@ test('open falls back: a reviewer that takes text only, then no reviewer at all 
   // Its New session button: a new Claude tab about the event.
   await until(() => c.ctx.opened.length === 1)
   assert.match(c.ctx.opened[0].prompt, /^About the meeting "Design review ACME-12" on Tue 3 Nov 11:00 \(from my Google Calendar\):\n\nDesign review ACME-12\nWhen:/)
+  assert.equal(c.ctx.opened[0].focus, true, "a tab opened for a click is selected")
 })
 
 test('Discuss: to the active tab; several tabs: the person picks; none: says so', async () => {
